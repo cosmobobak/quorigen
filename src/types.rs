@@ -1,7 +1,7 @@
-use std::str::FromStr;
 use std::ops::{
     BitAnd, BitAndAssign, BitOr, BitOrAssign, BitXor, BitXorAssign, Not, Shl, Shr, Sub, SubAssign,
 };
+use std::str::FromStr;
 
 /// Represents the colour of a pawn.
 pub enum Colour {
@@ -133,7 +133,7 @@ impl FromStr for Square {
 }
 
 /// Represents an occupancy.
-#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, Default)]
 pub struct SquareSet {
     /// The inner representation of the occupancy.
     /// Must be 128 bits, as there are 81 squares on the board.
@@ -172,7 +172,7 @@ impl SquareSet {
     };
 
     /// Creates a new empty `SquareSet`.
-    const fn new() -> Self {
+    pub const fn new() -> Self {
         Self { inner: 0 }
     }
 
@@ -182,19 +182,19 @@ impl SquareSet {
     }
 
     /// Returns whether the given square is occupied.
-    const fn contains(self, square: Square) -> bool {
+    pub const fn contains(self, square: Square) -> bool {
         self.inner & (1 << square.index()) != 0
     }
 
     /// Adds the given square to the set.
-    const fn add(self, square: Square) -> Self {
+    pub const fn add(self, square: Square) -> Self {
         Self {
             inner: self.inner | 1 << square.index(),
         }
     }
 
     /// Removes the given square from the set.
-    const fn remove(self, square: Square) -> Self {
+    pub const fn remove(self, square: Square) -> Self {
         Self {
             inner: self.inner & !(1 << square.index()),
         }
@@ -202,7 +202,7 @@ impl SquareSet {
 
     /// Shift the squares up by one.
     /// Squares on the top row are removed.
-    const fn north_one(self) -> Self {
+    pub const fn north_one(self) -> Self {
         Self {
             inner: (self.inner << 9) & Self::ALL_MASK,
         }
@@ -210,7 +210,7 @@ impl SquareSet {
 
     /// Shift the squares down by one.
     /// Squares on the bottom row are removed.
-    const fn south_one(self) -> Self {
+    pub const fn south_one(self) -> Self {
         Self {
             inner: self.inner >> 9,
         }
@@ -218,7 +218,7 @@ impl SquareSet {
 
     /// Shift the squares left by one.
     /// Squares on the leftmost column are removed.
-    const fn west_one(self) -> Self {
+    pub const fn west_one(self) -> Self {
         Self {
             inner: self.inner >> 1,
         }
@@ -227,20 +227,20 @@ impl SquareSet {
 
     /// Shift the squares right by one.
     /// Squares on the rightmost column are removed.
-    const fn east_one(self) -> Self {
+    pub const fn east_one(self) -> Self {
         Self {
             inner: self.inner << 1,
         }
         .intersection(Self::A_FILE.complement())
     }
 
-    const fn complement(self) -> Self {
+    pub const fn complement(self) -> Self {
         Self {
             inner: !self.inner & Self::ALL_MASK,
         }
     }
 
-    const fn intersection(self, other: Self) -> Self {
+    pub const fn intersection(self, other: Self) -> Self {
         Self {
             inner: self.inner & other.inner,
         }
@@ -251,7 +251,9 @@ impl BitOr for SquareSet {
     type Output = Self;
 
     fn bitor(self, rhs: Self) -> Self::Output {
-        Self { inner: self.inner | rhs.inner }
+        Self {
+            inner: self.inner | rhs.inner,
+        }
     }
 }
 
@@ -265,7 +267,9 @@ impl BitAnd for SquareSet {
     type Output = Self;
 
     fn bitand(self, rhs: Self) -> Self::Output {
-        Self { inner: self.inner & rhs.inner }
+        Self {
+            inner: self.inner & rhs.inner,
+        }
     }
 }
 
@@ -279,7 +283,9 @@ impl BitXor for SquareSet {
     type Output = Self;
 
     fn bitxor(self, rhs: Self) -> Self::Output {
-        Self { inner: self.inner ^ rhs.inner & Self::ALL_MASK }
+        Self {
+            inner: self.inner ^ rhs.inner & Self::ALL_MASK,
+        }
     }
 }
 
@@ -294,7 +300,9 @@ impl Sub for SquareSet {
     type Output = Self;
 
     fn sub(self, rhs: Self) -> Self::Output {
-        Self { inner: self.inner & !rhs.inner }
+        Self {
+            inner: self.inner & !rhs.inner,
+        }
     }
 }
 
@@ -308,7 +316,9 @@ impl Not for SquareSet {
     type Output = Self;
 
     fn not(self) -> Self::Output {
-        Self { inner: !self.inner & Self::ALL_MASK }
+        Self {
+            inner: !self.inner & Self::ALL_MASK,
+        }
     }
 }
 
@@ -316,7 +326,9 @@ impl Shr<u8> for SquareSet {
     type Output = Self;
 
     fn shr(self, rhs: u8) -> Self::Output {
-        Self { inner: self.inner >> rhs }
+        Self {
+            inner: self.inner >> rhs,
+        }
     }
 }
 
@@ -324,7 +336,9 @@ impl Shl<u8> for SquareSet {
     type Output = Self;
 
     fn shl(self, rhs: u8) -> Self::Output {
-        Self { inner: (self.inner << rhs) & Self::ALL_MASK }
+        Self {
+            inner: (self.inner << rhs) & Self::ALL_MASK,
+        }
     }
 }
 
@@ -349,13 +363,40 @@ impl std::fmt::Display for SquareSet {
     }
 }
 
+impl IntoIterator for SquareSet {
+    type Item = Square;
+    type IntoIter = SquareSetIter;
+
+    fn into_iter(self) -> Self::IntoIter {
+        SquareSetIter { inner: self.inner }
+    }
+}
+
+pub struct SquareSetIter {
+    inner: u128,
+}
+
+impl Iterator for SquareSetIter {
+    type Item = Square;
+
+    fn next(&mut self) -> Option<Self::Item> {
+        if self.inner == 0 {
+            None
+        } else {
+            let index = self.inner.trailing_zeros() as u8;
+            self.inner &= self.inner - 1;
+            Some(Square(index))
+        }
+    }
+}
+
 /// Represents a move.
 pub enum Move {
     Pawn {
-        to_sq: Square,
+        to_square: Square,
     },
     Wall {
-        to_sq: Square,
+        to_square: Square,
         orientation: WallOrientation,
     },
 }

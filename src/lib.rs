@@ -7,7 +7,6 @@ mod types;
 #[cfg(test)]
 mod tests {
     #[test]
-    #[ignore]
     fn perft_depth_one() {
         use crate::board::Board;
         const PAWN_MOVES: usize = 3;
@@ -19,7 +18,7 @@ mod tests {
         let mut count = 0;
         board.generate_moves(|_| {
             count += 1;
-            true
+            false
         });
 
         assert_eq!(count, MOVES, "perft(1) = {count}");
