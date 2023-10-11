@@ -1,3 +1,4 @@
+use std::str::FromStr;
 
 /// Represents the colour of a pawn.
 pub enum Colour {
@@ -16,7 +17,7 @@ pub struct Square(u8);
 
 impl Square {
     /// Returns the index of the square.
-    const fn index(self) -> u8 {
+    pub const fn index(self) -> u8 {
         self.0
     }
 
@@ -30,7 +31,7 @@ impl Square {
     }
 
     /// Returns the square above the given square.
-    const fn above(self) -> Option<Self> {
+    pub const fn above(self) -> Option<Self> {
         if self.0 < 9 {
             None
         } else {
@@ -39,7 +40,7 @@ impl Square {
     }
 
     /// Returns the square below the given square.
-    const fn below(self) -> Option<Self> {
+    pub const fn below(self) -> Option<Self> {
         if self.0 > 71 {
             None
         } else {
@@ -48,7 +49,7 @@ impl Square {
     }
 
     /// Returns the square to the left of the given square.
-    const fn left(self) -> Option<Self> {
+    pub const fn left(self) -> Option<Self> {
         if self.0 % 9 == 0 {
             None
         } else {
@@ -57,7 +58,7 @@ impl Square {
     }
 
     /// Returns the square to the right of the given square.
-    const fn right(self) -> Option<Self> {
+    pub const fn right(self) -> Option<Self> {
         if self.0 % 9 == 8 {
             None
         } else {
@@ -71,6 +72,55 @@ impl std::fmt::Display for Square {
         let file = self.0 % 9;
         let rank = self.0 / 9;
         write!(f, "{}{}", (b'a' + file) as char, rank + 1)
+    }
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
+pub enum SquareParseError {
+    TooLong(usize),
+    TooShort,
+    Empty,
+    NonAlphabeticFile(char),
+    NonDigitRank(char),
+    FileSubtractionUnderflow(char),
+    RankSubtractionUnderflow(char),
+    FileOutOfRange(char),
+    RankOutOfRange(char),
+}
+
+impl FromStr for Square {
+    type Err = SquareParseError;
+
+    fn from_str(s: &str) -> Result<Self, Self::Err> {
+        match s.len() {
+            0 => return Err(SquareParseError::Empty),
+            1 => return Err(SquareParseError::TooShort),
+            2 => {}
+            len => return Err(SquareParseError::TooLong(len)),
+        }
+        let mut chars = s.chars();
+        let file = chars.next().unwrap();
+        let rank = chars.next().unwrap();
+        if !file.is_ascii_alphabetic() {
+            return Err(SquareParseError::NonAlphabeticFile(file));
+        }
+        if !rank.is_ascii_digit() {
+            return Err(SquareParseError::NonDigitRank(rank));
+        }
+        let file_lower = file.to_ascii_lowercase();
+        let file_index = (file_lower as u8)
+            .checked_sub(b'a')
+            .ok_or(SquareParseError::FileSubtractionUnderflow(file))?;
+        let rank_index = (rank as u8)
+            .checked_sub(b'1')
+            .ok_or(SquareParseError::RankSubtractionUnderflow(rank))?;
+        if !(0..9).contains(&file_index) {
+            return Err(SquareParseError::FileOutOfRange(file));
+        }
+        if !(0..9).contains(&rank_index) {
+            return Err(SquareParseError::RankOutOfRange(rank));
+        }
+        Ok(Self(file_index + rank_index * 9))
     }
 }
 
@@ -128,6 +178,58 @@ impl std::fmt::Display for SquareSet {
 
 /// Represents a move.
 pub enum Move {
-    Pawn { to_sq: Square },
-    Wall { to_sq: Square, orientation: WallOrientation },
+    Pawn {
+        to_sq: Square,
+    },
+    Wall {
+        to_sq: Square,
+        orientation: WallOrientation,
+    },
+}
+
+mod tests {
+    #[test]
+    fn square_parsing() {
+        use super::{Square, SquareParseError};
+        use std::str::FromStr;
+
+        assert_eq!(
+            Square::from_str("a1").unwrap(),
+            Square::from_index(0).unwrap()
+        );
+        assert_eq!(
+            Square::from_str("i9").unwrap(),
+            Square::from_index(80).unwrap()
+        );
+
+        assert_eq!(
+            "a0".parse::<Square>(),
+            Err(SquareParseError::RankSubtractionUnderflow('0'))
+        );
+        assert_eq!("a10".parse::<Square>(), Err(SquareParseError::TooLong(3)));
+        assert_eq!(
+            "j1".parse::<Square>(),
+            Err(SquareParseError::FileOutOfRange('j'))
+        );
+        assert_eq!("A1".parse::<Square>(), Ok(Square::from_index(0).unwrap()));
+        assert_eq!("a".parse::<Square>(), Err(SquareParseError::TooShort));
+        assert_eq!("".parse::<Square>(), Err(SquareParseError::Empty));
+        assert_eq!(
+            "!!".parse::<Square>(),
+            Err(SquareParseError::NonAlphabeticFile('!'))
+        );
+    }
+
+    #[test]
+    fn square_round_trip() {
+        use super::Square;
+        use std::str::FromStr;
+
+        for index in 0..81 {
+            let square = Square::from_index(index).unwrap();
+            let square_str = square.to_string();
+            let square_parsed = Square::from_str(&square_str).unwrap();
+            assert_eq!(square, square_parsed);
+        }
+    }
 }

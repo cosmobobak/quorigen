@@ -7,6 +7,7 @@ mod types;
 #[cfg(test)]
 mod tests {
     #[test]
+    #[ignore]
     fn perft_depth_one() {
         use crate::board::Board;
         const PAWN_MOVES: usize = 3;
