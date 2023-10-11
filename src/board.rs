@@ -1,6 +1,6 @@
+use crate::types::Move;
 
-
-struct Board {
+pub struct Board {
     // we want a nice memory-efficient representation of the board
     // that also allows for fast move generation.
     //
@@ -27,4 +27,26 @@ struct Board {
     /// this means that the corners of the matrix are unused, as a wall
     /// placed in those slots would be partially off the board.
     walls: [[u8; 10]; 10],
+}
+
+impl Default for Board {
+    fn default() -> Self {
+        todo!()
+    }
+}
+
+impl std::fmt::Display for Board {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        todo!()
+    }
+}
+
+impl Board {
+    pub fn from_fen(fen: &str) -> Self {
+        todo!()
+    }
+
+    pub fn generate_moves(&self, callback: impl FnMut(Move) -> bool) {
+        todo!()
+    }
 }

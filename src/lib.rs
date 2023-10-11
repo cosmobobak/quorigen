@@ -1,28 +1,26 @@
+#![warn(clippy::all, clippy::pedantic, clippy::nursery)]
 //! A library for the game "Quoridor".
-//! 
-//! # Examples
-//! 
-//! ```
-//! use quoridor::add;
-//! 
-//! let result = add(2, 2);
-//! assert_eq!(result, 4);
-//! ```
 
 mod board;
 mod types;
 
-pub fn add(left: usize, right: usize) -> usize {
-    left + right
-}
-
 #[cfg(test)]
 mod tests {
-    use super::*;
-
     #[test]
-    fn it_works() {
-        let result = add(2, 2);
-        assert_eq!(result, 4);
+    fn perft_depth_one() {
+        use crate::board::Board;
+        const PAWN_MOVES: usize = 3;
+        const HORIZONTAL_WALL_MOVES: usize = 8 * 10;
+        const VERTICAL_WALL_MOVES: usize = 8 * 10;
+        const MOVES: usize = PAWN_MOVES + HORIZONTAL_WALL_MOVES + VERTICAL_WALL_MOVES;
+
+        let board = Board::default();
+        let mut count = 0;
+        board.generate_moves(|_| {
+            count += 1;
+            true
+        });
+
+        assert_eq!(count, MOVES, "perft(1) = {count}");
     }
 }
