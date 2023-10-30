@@ -380,6 +380,7 @@ impl Iterator for SquareSetIter {
     type Item = Square;
 
     fn next(&mut self) -> Option<Self::Item> {
+        #![allow(clippy::cast_possible_truncation)]
         if self.inner == 0 {
             None
         } else {
