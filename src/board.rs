@@ -1,4 +1,5 @@
-use crate::types::{Move, Square, SquareSet, WallOrientation};
+use crate::types::{Move, Square, WallOrientation};
+use crate::squareset::SquareSet;
 
 pub struct Board {
     // we want a nice memory-efficient representation of the board
@@ -38,6 +39,12 @@ impl Default for Board {
 
 impl std::fmt::Display for Board {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        // emit a FEN-like string for the board state
+        // do the wall section, then a space, then two squares for the pawns,
+        // then the ply count.
+        // eg
+        // 8/8/8/8/8/8/8/8 e1 e9 0 for the starting position
+        // or after the moves e2 e8
         todo!()
     }
 }
