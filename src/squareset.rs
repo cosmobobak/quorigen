@@ -13,7 +13,7 @@ pub struct SquareSet {
 }
 
 impl SquareSet {
-    const ALL_MASK: u128 = {
+    pub const ALL_MASK: u128 = {
         let mut mask = 0;
         let mut index = 0;
         while index < 81 {
@@ -23,7 +23,7 @@ impl SquareSet {
         mask
     };
 
-    const A_FILE: Self = {
+    pub const A_FILE: Self = {
         let mut mask = 0;
         let mut index = 0;
         while index < 81 {
@@ -33,7 +33,7 @@ impl SquareSet {
         Self { inner: mask }
     };
 
-    const I_FILE: Self = {
+    pub const I_FILE: Self = {
         let mut mask = 0;
         let mut index = 8;
         while index < 81 {

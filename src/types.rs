@@ -1,11 +1,5 @@
 use std::str::FromStr;
-use std::{
-    fmt::Display,
-    ops::{
-        BitAnd, BitAndAssign, BitOr, BitOrAssign, BitXor, BitXorAssign, Not, Shl, Shr, Sub,
-        SubAssign,
-    },
-};
+use std::fmt::Display;
 
 /// Represents the colour of a pawn.
 pub enum Colour {
@@ -173,44 +167,19 @@ impl Display for Move {
             Self::Wall {
                 to_square,
                 orientation,
-            } => match orientation {
-                WallOrientation::Horizontal => {
-                    // if we're going horizontal, we write rank-from-to, eg 7cd
-                    // is the wall from c7 to d7.
-                    // we always assume that the square is the leftmost square.
-                    let rank = usize::from(to_square.rank());
-                    let file = usize::from(to_square.file());
-                    write!(
-                        f,
-                        "{}{}{}",
-                        RANK_NAMES[rank] as char,
-                        FILE_NAMES[file] as char,
-                        FILE_NAMES[file + 1] as char
-                    )
+            } => write!(
+                f,
+                "{file}{rank}{orientation}",
+                file = FILE_NAMES[to_square.file() as usize] as char,
+                rank = RANK_NAMES[to_square.rank() as usize] as char,
+                orientation = match orientation {
+                    WallOrientation::Horizontal => "h",
+                    WallOrientation::Vertical => "v",
                 }
-                WallOrientation::Vertical => {
-                    // if we're going vertical, we write file-from-to, eg h67
-                    // is the wall from h6 to h7.
-                    // we always assume that the square is the bottom square.
-                    let rank = usize::from(to_square.rank());
-                    let file = usize::from(to_square.file());
-                    write!(
-                        f,
-                        "{}{}{}",
-                        FILE_NAMES[file] as char,
-                        RANK_NAMES[rank] as char,
-                        RANK_NAMES[rank + 1] as char
-                    )
-                }
-            },
+            ),
         }
     }
 }
-
-#[allow(clippy::assertions_on_constants)]
-const _A_FILE_SENSIBLE: () = assert!(SquareSet::A_FILE.inner & !SquareSet::ALL_MASK == 0);
-#[allow(clippy::assertions_on_constants)]
-const _I_FILE_SENSIBLE: () = assert!(SquareSet::I_FILE.inner & !SquareSet::ALL_MASK == 0);
 
 mod tests {
     #[test]
@@ -228,8 +197,8 @@ mod tests {
             orientation: WallOrientation::Horizontal,
         };
 
-        assert_eq!(mv_e45.to_string(), "e45");
-        assert_eq!(mv_4ef.to_string(), "4ef");
+        assert_eq!(mv_e45.to_string(), "e4v");
+        assert_eq!(mv_4ef.to_string(), "e4h");
     }
 
     #[test]
