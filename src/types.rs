@@ -1,7 +1,11 @@
-use std::ops::{
-    BitAnd, BitAndAssign, BitOr, BitOrAssign, BitXor, BitXorAssign, Not, Shl, Shr, Sub, SubAssign,
-};
 use std::str::FromStr;
+use std::{
+    fmt::Display,
+    ops::{
+        BitAnd, BitAndAssign, BitOr, BitOrAssign, BitXor, BitXorAssign, Not, Shl, Shr, Sub,
+        SubAssign,
+    },
+};
 
 /// Represents the colour of a pawn.
 pub enum Colour {
@@ -10,6 +14,7 @@ pub enum Colour {
 }
 
 /// Represents the orientation of a wall.
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
 pub enum WallOrientation {
     Horizontal,
     Vertical,
@@ -34,7 +39,7 @@ impl Square {
     }
 
     /// Returns the square given by the file and rank.
-    const fn from_file_rank(file: u8, rank: u8) -> Option<Self> {
+    pub const fn from_file_rank(file: u8, rank: u8) -> Option<Self> {
         Self::from_index(file + rank * 9)
     }
 
@@ -72,6 +77,16 @@ impl Square {
         } else {
             Some(Self(self.0 + 1))
         }
+    }
+
+    /// Returns the file of the square.
+    pub const fn file(self) -> u8 {
+        self.0 % 9
+    }
+
+    /// Returns the rank of the square.
+    pub const fn rank(self) -> u8 {
+        self.0 / 9
     }
 }
 
@@ -391,6 +406,7 @@ impl Iterator for SquareSetIter {
 }
 
 /// Represents a move.
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
 pub enum Move {
     Pawn {
         to_square: Square,
@@ -401,12 +417,74 @@ pub enum Move {
     },
 }
 
+impl Display for Move {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        const FILE_NAMES: &[u8] = b"abcdefghi";
+        const RANK_NAMES: &[u8] = b"123456789";
+        match *self {
+            Self::Pawn { to_square } => write!(f, "{to_square}"),
+            Self::Wall {
+                to_square,
+                orientation,
+            } => match orientation {
+                WallOrientation::Horizontal => {
+                    // if we're going horizontal, we write rank-from-to, eg 7cd
+                    // is the wall from c7 to d7.
+                    // we always assume that the square is the leftmost square.
+                    let rank = usize::from(to_square.rank());
+                    let file = usize::from(to_square.file());
+                    write!(
+                        f,
+                        "{}{}{}",
+                        RANK_NAMES[rank] as char,
+                        FILE_NAMES[file] as char,
+                        FILE_NAMES[file + 1] as char
+                    )
+                }
+                WallOrientation::Vertical => {
+                    // if we're going vertical, we write file-from-to, eg h67
+                    // is the wall from h6 to h7.
+                    // we always assume that the square is the bottom square.
+                    let rank = usize::from(to_square.rank());
+                    let file = usize::from(to_square.file());
+                    write!(
+                        f,
+                        "{}{}{}",
+                        FILE_NAMES[file] as char,
+                        RANK_NAMES[rank] as char,
+                        RANK_NAMES[rank + 1] as char
+                    )
+                }
+            },
+        }
+    }
+}
+
 #[allow(clippy::assertions_on_constants)]
 const _A_FILE_SENSIBLE: () = assert!(SquareSet::A_FILE.inner & !SquareSet::ALL_MASK == 0);
 #[allow(clippy::assertions_on_constants)]
 const _I_FILE_SENSIBLE: () = assert!(SquareSet::I_FILE.inner & !SquareSet::ALL_MASK == 0);
 
 mod tests {
+    #[test]
+    fn move_display() {
+        use super::{Move, Square, WallOrientation};
+        use std::str::FromStr;
+
+        let e4 = Square::from_str("e4").unwrap();
+        let mv_e45 = Move::Wall {
+            to_square: e4,
+            orientation: WallOrientation::Vertical,
+        };
+        let mv_4ef = Move::Wall {
+            to_square: e4,
+            orientation: WallOrientation::Horizontal,
+        };
+
+        assert_eq!(mv_e45.to_string(), "e45");
+        assert_eq!(mv_4ef.to_string(), "4ef");
+    }
+
     #[test]
     fn square_parsing() {
         use super::{Square, SquareParseError};

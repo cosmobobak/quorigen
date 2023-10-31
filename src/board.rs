@@ -124,4 +124,30 @@ impl Board {
             }
         }
     }
+
+    pub fn set_walls_in_pocket(&mut self, white: u8, black: u8) {
+        self.walls_in_pocket = [white, black];
+    }
+
+    pub fn make_move(&mut self, mv: Move) {
+        match mv {
+            Move::Pawn { to_square } => {
+                let turn_index = usize::from(self.ply % 2);
+                self.pawns[turn_index] = to_square;
+            }
+            Move::Wall { to_square, orientation } => {
+                let turn_index = usize::from(self.ply % 2);
+                self.walls_in_pocket[turn_index] -= 1;
+                match orientation {
+                    WallOrientation::Horizontal => {
+                        self.horizontal_walls = self.horizontal_walls.add(to_square);
+                    }
+                    WallOrientation::Vertical => {
+                        self.vertical_walls = self.vertical_walls.add(to_square);
+                    }
+                }
+            }
+        }
+        self.ply += 1;
+    }
 }
