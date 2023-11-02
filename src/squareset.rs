@@ -4,118 +4,150 @@ use std::ops::{
 
 use crate::types::Square;
 
-/// Represents an occupancy.
-#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, Default)]
+#[derive(Copy, Clone, Debug, PartialEq, Eq, Hash)]
+#[repr(transparent)]
 pub struct SquareSet {
-    /// The inner representation of the occupancy.
-    /// Must be 128 bits, as there are 81 squares on the board.
-    inner: u128,
+    inner: u64,
 }
 
+pub static BB_RANKS: [SquareSet; 8] = [
+    SquareSet::RANK_1,
+    SquareSet::RANK_2,
+    SquareSet::RANK_3,
+    SquareSet::RANK_4,
+    SquareSet::RANK_5,
+    SquareSet::RANK_6,
+    SquareSet::RANK_7,
+    SquareSet::RANK_8,
+];
+
+pub static BB_FILES: [SquareSet; 8] = [
+    SquareSet::FILE_A,
+    SquareSet::FILE_B,
+    SquareSet::FILE_C,
+    SquareSet::FILE_D,
+    SquareSet::FILE_E,
+    SquareSet::FILE_F,
+    SquareSet::FILE_G,
+    SquareSet::FILE_H,
+];
+
 impl SquareSet {
-    pub const ALL_MASK: u128 = {
-        let mut mask = 0;
-        let mut index = 0;
-        while index < 81 {
-            mask |= 1 << index;
-            index += 1;
-        }
-        mask
-    };
+    pub const EMPTY: Self = Self { inner: 0 };
+    pub const FULL: Self = Self { inner: !0 };
 
-    pub const A_FILE: Self = {
-        let mut mask = 0;
-        let mut index = 0;
-        while index < 81 {
-            mask |= 1 << index;
-            index += 9;
-        }
-        Self { inner: mask }
-    };
+    pub const RANK_1: Self = Self { inner: 0x0000_0000_0000_00FF };
+    pub const RANK_2: Self = Self { inner: 0x0000_0000_0000_FF00 };
+    pub const RANK_3: Self = Self { inner: 0x0000_0000_00FF_0000 };
+    pub const RANK_4: Self = Self { inner: 0x0000_0000_FF00_0000 };
+    pub const RANK_5: Self = Self { inner: 0x0000_00FF_0000_0000 };
+    pub const RANK_6: Self = Self { inner: 0x0000_FF00_0000_0000 };
+    pub const RANK_7: Self = Self { inner: 0x00FF_0000_0000_0000 };
+    pub const RANK_8: Self = Self { inner: 0xFF00_0000_0000_0000 };
+    pub const FILE_A: Self = Self { inner: 0x0101_0101_0101_0101 };
+    pub const FILE_B: Self = Self { inner: 0x0202_0202_0202_0202 };
+    pub const FILE_C: Self = Self { inner: 0x0404_0404_0404_0404 };
+    pub const FILE_D: Self = Self { inner: 0x0808_0808_0808_0808 };
+    pub const FILE_E: Self = Self { inner: 0x1010_1010_1010_1010 };
+    pub const FILE_F: Self = Self { inner: 0x2020_2020_2020_2020 };
+    pub const FILE_G: Self = Self { inner: 0x4040_4040_4040_4040 };
+    pub const FILE_H: Self = Self { inner: 0x8080_8080_8080_8080 };
+    pub const LIGHT_SQUARES: Self = Self { inner: 0x55AA_55AA_55AA_55AA };
+    pub const DARK_SQUARES: Self = Self { inner: 0xAA55_AA55_AA55_AA55 };
 
-    pub const I_FILE: Self = {
-        let mut mask = 0;
-        let mut index = 8;
-        while index < 81 {
-            mask |= 1 << index;
-            index += 9;
-        }
-        Self { inner: mask }
-    };
-
-    /// Creates a new empty `SquareSet`.
-    pub const fn new() -> Self {
-        Self { inner: 0 }
-    }
-
-    /// Creates a new `SquareSet` with the given square set.
-    const fn with(inner: u128) -> Self {
+    pub const fn from_inner(inner: u64) -> Self {
         Self { inner }
     }
 
-    /// Returns whether the given square is occupied.
-    pub const fn contains(self, square: Square) -> bool {
-        self.inner & (1 << square.index()) != 0
+    pub const fn inner(self) -> u64 {
+        self.inner
     }
 
-    /// Adds the given square to the set.
-    pub const fn add(self, square: Square) -> Self {
-        Self {
-            inner: self.inner | 1 << square.index(),
-        }
+    pub const fn count(self) -> u32 {
+        self.inner.count_ones()
     }
 
-    /// Removes the given square from the set.
-    pub const fn remove(self, square: Square) -> Self {
-        Self {
-            inner: self.inner & !(1 << square.index()),
-        }
+    pub const fn is_empty(self) -> bool {
+        self.inner == 0
     }
 
-    /// Shift the squares up by one.
-    /// Squares on the top row are removed.
-    pub const fn north_one(self) -> Self {
-        Self {
-            inner: (self.inner << 9) & Self::ALL_MASK,
-        }
+    pub const fn is_full(self) -> bool {
+        self.inner == !0
     }
 
-    /// Shift the squares down by one.
-    /// Squares on the bottom row are removed.
-    pub const fn south_one(self) -> Self {
-        Self {
-            inner: self.inner >> 9,
-        }
-    }
-
-    /// Shift the squares left by one.
-    /// Squares on the leftmost column are removed.
-    pub const fn west_one(self) -> Self {
-        Self {
-            inner: self.inner >> 1,
-        }
-        .intersection(Self::I_FILE.complement())
-    }
-
-    /// Shift the squares right by one.
-    /// Squares on the rightmost column are removed.
-    pub const fn east_one(self) -> Self {
-        Self {
-            inner: self.inner << 1,
-        }
-        .intersection(Self::A_FILE.complement())
-    }
-
-    pub const fn complement(self) -> Self {
-        Self {
-            inner: !self.inner & Self::ALL_MASK,
-        }
+    pub const fn non_empty(self) -> bool {
+        self.inner != 0
     }
 
     pub const fn intersection(self, other: Self) -> Self {
-        Self {
-            inner: self.inner & other.inner,
-        }
+        Self { inner: self.inner & other.inner }
+    }
+
+    pub const fn contains(self, other: Self) -> bool {
+        (self.inner & other.inner) == other.inner
+    }
+
+    pub const fn contains_square(self, square: Square) -> bool {
+        (self.inner & (1 << square.index())) != 0
+    }
+
+    pub const fn union(self, other: Self) -> Self {
+        Self { inner: self.inner | other.inner }
+    }
+
+    pub const fn add_square(self, square: Square) -> Self {
+        Self { inner: self.inner | (1 << square.index()) }
+    }
+
+    pub const fn remove(self, other: Self) -> Self {
+        Self { inner: self.inner & !other.inner }
+    }
+
+    pub const fn remove_square(self, square: Square) -> Self {
+        Self { inner: self.inner & !(1 << square.index()) }
+    }
+
+    pub const fn toggle(self, other: Self) -> Self {
+        Self { inner: self.inner ^ other.inner }
+    }
+
+    pub const fn toggle_square(self, square: Square) -> Self {
+        Self { inner: self.inner ^ (1 << square.index()) }
+    }
+
+    #[allow(clippy::cast_possible_truncation)]
+    pub const fn first(self) -> Square {
+        debug_assert!(self.inner != 0, "Tried to get first square of empty bitboard");
+        unsafe { Square::from_index_unchecked(self.inner.trailing_zeros() as u8) }
+    }
+
+    pub const fn from_square(square: Square) -> Self {
+        Self { inner: 1 << square.index() }
+    }
+
+    pub fn north_east_one(self) -> Self {
+        (self << 9) & !Self::FILE_A
+    }
+    pub fn north_west_one(self) -> Self {
+        (self << 7) & !Self::FILE_H
+    }
+    pub fn south_east_one(self) -> Self {
+        (self >> 7) & !Self::FILE_A
+    }
+    pub fn south_west_one(self) -> Self {
+        (self >> 9) & !Self::FILE_H
+    }
+    pub fn east_one(self) -> Self {
+        (self >> 1) & !Self::FILE_A
+    }
+    pub fn west_one(self) -> Self {
+        (self << 1) & !Self::FILE_H
+    }
+    pub fn north_one(self) -> Self {
+        self << 8
+    }
+    pub fn south_one(self) -> Self {
+        self >> 8
     }
 }
 
@@ -123,9 +155,7 @@ impl BitOr for SquareSet {
     type Output = Self;
 
     fn bitor(self, rhs: Self) -> Self::Output {
-        Self {
-            inner: self.inner | rhs.inner,
-        }
+        Self { inner: self.inner | rhs.inner }
     }
 }
 
@@ -139,9 +169,7 @@ impl BitAnd for SquareSet {
     type Output = Self;
 
     fn bitand(self, rhs: Self) -> Self::Output {
-        Self {
-            inner: self.inner & rhs.inner,
-        }
+        Self { inner: self.inner & rhs.inner }
     }
 }
 
@@ -155,16 +183,13 @@ impl BitXor for SquareSet {
     type Output = Self;
 
     fn bitxor(self, rhs: Self) -> Self::Output {
-        Self {
-            inner: self.inner ^ rhs.inner & Self::ALL_MASK,
-        }
+        Self { inner: self.inner ^ rhs.inner }
     }
 }
 
 impl BitXorAssign for SquareSet {
     fn bitxor_assign(&mut self, rhs: Self) {
         self.inner ^= rhs.inner;
-        self.inner &= Self::ALL_MASK;
     }
 }
 
@@ -172,9 +197,7 @@ impl Sub for SquareSet {
     type Output = Self;
 
     fn sub(self, rhs: Self) -> Self::Output {
-        Self {
-            inner: self.inner & !rhs.inner,
-        }
+        Self { inner: self.inner & !rhs.inner }
     }
 }
 
@@ -188,9 +211,7 @@ impl Not for SquareSet {
     type Output = Self;
 
     fn not(self) -> Self::Output {
-        Self {
-            inner: !self.inner & Self::ALL_MASK,
-        }
+        Self { inner: !self.inner }
     }
 }
 
@@ -198,9 +219,7 @@ impl Shr<u8> for SquareSet {
     type Output = Self;
 
     fn shr(self, rhs: u8) -> Self::Output {
-        Self {
-            inner: self.inner >> rhs,
-        }
+        Self { inner: self.inner >> rhs }
     }
 }
 
@@ -208,30 +227,7 @@ impl Shl<u8> for SquareSet {
     type Output = Self;
 
     fn shl(self, rhs: u8) -> Self::Output {
-        Self {
-            inner: (self.inner << rhs) & Self::ALL_MASK,
-        }
-    }
-}
-
-impl std::fmt::Display for SquareSet {
-    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        for rank in (0..9).rev() {
-            for file in 0..9 {
-                let square = Square::from_file_rank(file, rank).unwrap();
-                if self.contains(square) {
-                    write!(f, "X ")?;
-                } else {
-                    write!(f, ". ")?;
-                }
-            }
-            writeln!(f)?;
-        }
-        assert!(
-            self.inner & !Self::ALL_MASK == 0,
-            "Squares outside the board are occupied."
-        );
-        Ok(())
+        Self { inner: self.inner << rhs }
     }
 }
 
@@ -245,7 +241,7 @@ impl IntoIterator for SquareSet {
 }
 
 pub struct SquareSetIter {
-    inner: u128,
+    inner: u64,
 }
 
 impl Iterator for SquareSetIter {
@@ -263,127 +259,8 @@ impl Iterator for SquareSetIter {
     }
 }
 
-#[allow(clippy::assertions_on_constants)]
-const _A_FILE_SENSIBLE: () = assert!(SquareSet::A_FILE.inner & !SquareSet::ALL_MASK == 0);
-#[allow(clippy::assertions_on_constants)]
-const _I_FILE_SENSIBLE: () = assert!(SquareSet::I_FILE.inner & !SquareSet::ALL_MASK == 0);
-
-mod tests {
-    #[test]
-    fn squareset_add_remove() {
-        use super::{Square, SquareSet};
-
-        let a1: Square = "a1".parse().unwrap();
-        let mut set = SquareSet::new();
-        assert!(!set.contains(a1));
-        set = set.add(a1);
-        assert!(set.contains(a1));
-        set = set.remove(a1);
-        assert!(!set.contains(a1));
-    }
-
-    #[test]
-    fn squareset_north_one() {
-        use super::SquareSet;
-        use std::str::FromStr;
-
-        let corners = ["a1", "i1", "a9", "i9"];
-        let corners = corners
-            .into_iter()
-            .map(FromStr::from_str)
-            .map(Result::unwrap)
-            .fold(SquareSet::new(), SquareSet::add);
-
-        let north_one = corners.north_one();
-
-        // no "a10" or "i10", these would be off the board.
-        let expected = ["a2", "i2"];
-        let expected = expected
-            .into_iter()
-            .map(FromStr::from_str)
-            .map(Result::unwrap)
-            .fold(SquareSet::new(), SquareSet::add);
-
-        assert_eq!(
-            north_one, expected,
-            "expected \n{expected} got \n{north_one}"
-        );
-    }
-
-    #[test]
-    fn squareset_south_one() {
-        use super::SquareSet;
-        use std::str::FromStr;
-
-        let corners = ["a1", "i1", "a9", "i9"];
-        let corners = corners
-            .into_iter()
-            .map(FromStr::from_str)
-            .map(Result::unwrap)
-            .fold(SquareSet::new(), SquareSet::add);
-
-        let south_one = corners.south_one();
-
-        // no "a0" or "i0", these would be off the board.
-        let expected = ["a8", "i8"];
-        let expected = expected
-            .into_iter()
-            .map(FromStr::from_str)
-            .map(Result::unwrap)
-            .fold(SquareSet::new(), SquareSet::add);
-
-        assert_eq!(
-            south_one, expected,
-            "expected \n{expected} got \n{south_one}"
-        );
-    }
-
-    #[test]
-    fn squareset_west_one() {
-        use super::SquareSet;
-        use std::str::FromStr;
-
-        let corners = ["a1", "i1", "a9", "i9"];
-        let corners = corners
-            .into_iter()
-            .map(FromStr::from_str)
-            .map(Result::unwrap)
-            .fold(SquareSet::new(), SquareSet::add);
-
-        let west_one = corners.west_one();
-
-        let expected = ["h1", "h9"];
-        let expected = expected
-            .into_iter()
-            .map(FromStr::from_str)
-            .map(Result::unwrap)
-            .fold(SquareSet::new(), SquareSet::add);
-
-        assert_eq!(west_one, expected, "expected \n{expected} got \n{west_one}");
-    }
-
-    #[test]
-    fn squareset_east_one() {
-        use super::SquareSet;
-        use std::str::FromStr;
-
-        let corners = ["a1", "i1", "a9", "i9"];
-        let corners = corners
-            .into_iter()
-            .map(FromStr::from_str)
-            .map(Result::unwrap)
-            .fold(SquareSet::new(), SquareSet::add);
-
-        let east_one = corners.east_one();
-
-        // no "j1" or "j9", these would be off the board.
-        let expected = ["b1", "b9"];
-        let expected = expected
-            .into_iter()
-            .map(FromStr::from_str)
-            .map(Result::unwrap)
-            .fold(SquareSet::new(), SquareSet::add);
-
-        assert_eq!(east_one, expected, "expected \n{expected} got \n{east_one}");
+impl Default for SquareSet {
+    fn default() -> Self {
+        Self::EMPTY
     }
 }

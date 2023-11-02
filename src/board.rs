@@ -40,16 +40,30 @@ impl Default for Board {
 impl std::fmt::Display for Board {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         // emit a FEN-like string for the board state
-        // do the wall section, then a space, then two squares for the pawns,
-        // then the ply count.
-        // eg
-        // 8/8/8/8/8/8/8/8 e1 e9 0 for the starting position
-        // or after the moves e2 e8
+        // A Forsyth–Edwards Notation-like record can define a particular game position:
+
+        // [1] / [2] / [3.1] [3.2] [3.3*] [3.4*] / [4.1] [4.2] [4.3*] [4.4*] / [5]
+
+        // 1. Horizontal wall positions
+        // 2. Vertical wall positions
+        // 3. Pawn positions:
+        //   3.1 Player 1 pawn position
+        //   3.2 Player 2 pawn position
+        // 4. Walls available:
+        //   4.2. player 1 walls available
+        //   4.2. player 2 walls available
+        // 5. Active player
+
+        // An example:
+        // d4f4e7 / a2a8 / e4 e6 / 7 8 / 2
+        let mut builder = String::new();
+
         todo!()
     }
 }
 
 impl Board {
+    #[must_use]
     pub fn from_fen(fen: &str) -> Self {
         todo!()
     }
@@ -64,7 +78,7 @@ impl Board {
             if to_square == opponent_pawn {
                 to_square = opponent_pawn.above().unwrap();
             }
-            if !self.horizontal_walls.contains(to_square) && callback(Move::Pawn { to_square }) {
+            if !self.horizontal_walls.contains_square(to_square) && callback(Move::Pawn { to_square }) {
                 return;
             }
         }
@@ -72,7 +86,7 @@ impl Board {
             if to_square == opponent_pawn {
                 to_square = opponent_pawn.below().unwrap();
             }
-            if !self.horizontal_walls.contains(to_square) && callback(Move::Pawn { to_square }) {
+            if !self.horizontal_walls.contains_square(to_square) && callback(Move::Pawn { to_square }) {
                 return;
             }
         }
@@ -80,7 +94,7 @@ impl Board {
             if to_square == opponent_pawn {
                 to_square = opponent_pawn.left().unwrap();
             }
-            if !self.vertical_walls.contains(to_square) && callback(Move::Pawn { to_square }) {
+            if !self.vertical_walls.contains_square(to_square) && callback(Move::Pawn { to_square }) {
                 return;
             }
         }
@@ -88,7 +102,7 @@ impl Board {
             if to_square == opponent_pawn {
                 to_square = opponent_pawn.right().unwrap();
             }
-            if !self.vertical_walls.contains(to_square) && callback(Move::Pawn { to_square }) {
+            if !self.vertical_walls.contains_square(to_square) && callback(Move::Pawn { to_square }) {
                 return;
             }
         }
@@ -108,7 +122,7 @@ impl Board {
         // 3. the middles of existing vertical walls
         blockers |= self.vertical_walls.east_one().south_one();
 
-        let moves = blockers.complement();
+        let moves = !blockers;
         for to_square in moves {
             if callback(Move::Wall { to_square, orientation: WallOrientation::Horizontal }) {
                 return;
@@ -124,7 +138,7 @@ impl Board {
         // 3. the middles of existing horizontal walls
         blockers |= self.horizontal_walls.east_one().south_one();
 
-        let moves = blockers.complement();
+        let moves = !blockers;
         for to_square in moves {
             if callback(Move::Wall { to_square, orientation: WallOrientation::Vertical }) {
                 return;
@@ -147,10 +161,10 @@ impl Board {
                 self.walls_in_pocket[turn_index] -= 1;
                 match orientation {
                     WallOrientation::Horizontal => {
-                        self.horizontal_walls = self.horizontal_walls.add(to_square);
+                        self.horizontal_walls = self.horizontal_walls.add_square(to_square);
                     }
                     WallOrientation::Vertical => {
-                        self.vertical_walls = self.vertical_walls.add(to_square);
+                        self.vertical_walls = self.vertical_walls.add_square(to_square);
                     }
                 }
             }
