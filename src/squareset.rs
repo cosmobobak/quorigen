@@ -1,8 +1,8 @@
-use std::ops::{
+use std::{ops::{
     BitAnd, BitAndAssign, BitOr, BitOrAssign, BitXor, BitXorAssign, Not, Shl, Shr, Sub, SubAssign,
-};
+}, fmt::Display};
 
-use crate::types::Square;
+use crate::types::Square8x8;
 
 #[derive(Copy, Clone, Debug, PartialEq, Eq, Hash)]
 #[repr(transparent)]
@@ -87,7 +87,7 @@ impl SquareSet {
         (self.inner & other.inner) == other.inner
     }
 
-    pub const fn contains_square(self, square: Square) -> bool {
+    pub const fn contains_square(self, square: Square8x8) -> bool {
         (self.inner & (1 << square.index())) != 0
     }
 
@@ -95,7 +95,7 @@ impl SquareSet {
         Self { inner: self.inner | other.inner }
     }
 
-    pub const fn add_square(self, square: Square) -> Self {
+    pub const fn add_square(self, square: Square8x8) -> Self {
         Self { inner: self.inner | (1 << square.index()) }
     }
 
@@ -103,7 +103,7 @@ impl SquareSet {
         Self { inner: self.inner & !other.inner }
     }
 
-    pub const fn remove_square(self, square: Square) -> Self {
+    pub const fn remove_square(self, square: Square8x8) -> Self {
         Self { inner: self.inner & !(1 << square.index()) }
     }
 
@@ -111,43 +111,43 @@ impl SquareSet {
         Self { inner: self.inner ^ other.inner }
     }
 
-    pub const fn toggle_square(self, square: Square) -> Self {
+    pub const fn toggle_square(self, square: Square8x8) -> Self {
         Self { inner: self.inner ^ (1 << square.index()) }
     }
 
     #[allow(clippy::cast_possible_truncation)]
-    pub const fn first(self) -> Square {
+    pub const fn first(self) -> Square8x8 {
         debug_assert!(self.inner != 0, "Tried to get first square of empty bitboard");
-        unsafe { Square::from_index_unchecked(self.inner.trailing_zeros() as u8) }
+        unsafe { Square8x8::from_index_unchecked(self.inner.trailing_zeros() as u8) }
     }
 
-    pub const fn from_square(square: Square) -> Self {
+    pub const fn from_square(square: Square8x8) -> Self {
         Self { inner: 1 << square.index() }
     }
 
     pub fn north_east_one(self) -> Self {
-        (self << 9) & !Self::FILE_A
+        Self { inner: self.inner << 9 } & !Self::FILE_A
     }
     pub fn north_west_one(self) -> Self {
-        (self << 7) & !Self::FILE_H
+        Self { inner: self.inner << 7 } & !Self::FILE_H
     }
     pub fn south_east_one(self) -> Self {
-        (self >> 7) & !Self::FILE_A
+        Self { inner: self.inner >> 7 } & !Self::FILE_A
     }
     pub fn south_west_one(self) -> Self {
-        (self >> 9) & !Self::FILE_H
+        Self { inner: self.inner >> 9 } & !Self::FILE_H
     }
     pub fn east_one(self) -> Self {
-        (self >> 1) & !Self::FILE_A
+        Self { inner: self.inner << 1 } & !Self::FILE_A
     }
     pub fn west_one(self) -> Self {
-        (self << 1) & !Self::FILE_H
+        Self { inner: self.inner >> 1 } & !Self::FILE_H
     }
-    pub fn north_one(self) -> Self {
-        self << 8
+    pub const fn north_one(self) -> Self {
+        Self { inner: self.inner << 8 }
     }
-    pub fn south_one(self) -> Self {
-        self >> 8
+    pub const fn south_one(self) -> Self {
+        Self { inner: self.inner >> 8 }
     }
 }
 
@@ -215,24 +215,8 @@ impl Not for SquareSet {
     }
 }
 
-impl Shr<u8> for SquareSet {
-    type Output = Self;
-
-    fn shr(self, rhs: u8) -> Self::Output {
-        Self { inner: self.inner >> rhs }
-    }
-}
-
-impl Shl<u8> for SquareSet {
-    type Output = Self;
-
-    fn shl(self, rhs: u8) -> Self::Output {
-        Self { inner: self.inner << rhs }
-    }
-}
-
 impl IntoIterator for SquareSet {
-    type Item = Square;
+    type Item = Square8x8;
     type IntoIter = SquareSetIter;
 
     fn into_iter(self) -> Self::IntoIter {
@@ -245,7 +229,7 @@ pub struct SquareSetIter {
 }
 
 impl Iterator for SquareSetIter {
-    type Item = Square;
+    type Item = Square8x8;
 
     fn next(&mut self) -> Option<Self::Item> {
         #![allow(clippy::cast_possible_truncation)]
@@ -254,7 +238,9 @@ impl Iterator for SquareSetIter {
         } else {
             let index = self.inner.trailing_zeros() as u8;
             self.inner &= self.inner - 1;
-            Some(unsafe { Square::from_index_unchecked(index) })
+            let rank = index / 8;
+            let file = index % 8;
+            Some(unsafe { Square8x8::from_file_rank(file, rank).unwrap_unchecked() })
         }
     }
 }
@@ -262,5 +248,24 @@ impl Iterator for SquareSetIter {
 impl Default for SquareSet {
     fn default() -> Self {
         Self::EMPTY
+    }
+}
+
+impl Display for SquareSet {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        let mut builder = String::with_capacity(64 * 2 + 8);
+        for rank in (0..8).rev() {
+            for file in 0..8 {
+                let square = Square8x8::from_file_rank(file, rank).unwrap();
+                if self.contains_square(square) {
+                    builder.push('X');
+                } else {
+                    builder.push('.');
+                }
+                builder.push(' ');
+            }
+            builder.push('\n');
+        }
+        write!(f, "{builder}")
     }
 }

@@ -1,6 +1,7 @@
-use crate::types::{Move, Square, WallOrientation};
 use crate::squareset::SquareSet;
+use crate::types::{Move, Square9x9, WallOrientation};
 
+#[derive(Copy, Clone, Debug, PartialEq, Eq, Hash)]
 pub struct Board {
     // we want a nice memory-efficient representation of the board
     // that also allows for fast move generation.
@@ -12,9 +13,8 @@ pub struct Board {
     // there are two relvant considerations for storing board state:
     // 1. where are the pawns?
     // 2. where are the walls?
-    
     /// The pawns on the board.
-    pawns: [Square; 2],
+    pawns: [Square9x9; 2],
     /// The horizontal walls on the board.
     horizontal_walls: SquareSet,
     /// The vertical walls on the board.
@@ -74,35 +74,59 @@ impl Board {
         let opponent_pawn = self.pawns[1 - turn_index];
 
         // generate pawn moves
-        if let Some(mut to_square) = pawn.above() {
-            if to_square == opponent_pawn {
-                to_square = opponent_pawn.above().unwrap();
-            }
-            if !self.horizontal_walls.contains_square(to_square) && callback(Move::Pawn { to_square }) {
+        if let Some(to_square) = pawn.above() {
+            let wall_here = pawn.try_into().map_or(false, |pawn| {
+                self.horizontal_walls.contains_square(pawn)
+            });
+            let wall_to_the_left = pawn.left().map_or(false, |left| {
+                left.try_into().map_or(false, |pawn| {
+                    self.horizontal_walls.contains_square(pawn)
+                })
+            });
+            // if there isn't a wall blocking us, we pass the move to the callback
+            if !wall_here && !wall_to_the_left && callback(Move::Pawn { to_square }) {
                 return;
             }
         }
-        if let Some(mut to_square) = pawn.below() {
-            if to_square == opponent_pawn {
-                to_square = opponent_pawn.below().unwrap();
-            }
-            if !self.horizontal_walls.contains_square(to_square) && callback(Move::Pawn { to_square }) {
+        if let Some(to_square) = pawn.below() {
+            let wall_over = to_square.try_into().map_or(false, |pawn| {
+                self.horizontal_walls.contains_square(pawn)
+            });
+            let wall_to_the_left = to_square.left().map_or(false, |left| {
+                left.try_into().map_or(false, |pawn| {
+                    self.horizontal_walls.contains_square(pawn)
+                })
+            });
+            // if there isn't a wall blocking us, we pass the move to the callback
+            if !wall_over && !wall_to_the_left && callback(Move::Pawn { to_square }) {
                 return;
             }
         }
-        if let Some(mut to_square) = pawn.left() {
-            if to_square == opponent_pawn {
-                to_square = opponent_pawn.left().unwrap();
-            }
-            if !self.vertical_walls.contains_square(to_square) && callback(Move::Pawn { to_square }) {
+        if let Some(to_square) = pawn.right() {
+            let wall_here = pawn.try_into().map_or(false, |pawn| {
+                self.vertical_walls.contains_square(pawn)
+            });
+            let wall_below = pawn.below().map_or(false, |below| {
+                below.try_into().map_or(false, |pawn| {
+                    self.vertical_walls.contains_square(pawn)
+                })
+            });
+            // if there isn't a wall blocking us, we pass the move to the callback
+            if !wall_here && !wall_below && callback(Move::Pawn { to_square }) {
                 return;
             }
         }
-        if let Some(mut to_square) = pawn.right() {
-            if to_square == opponent_pawn {
-                to_square = opponent_pawn.right().unwrap();
-            }
-            if !self.vertical_walls.contains_square(to_square) && callback(Move::Pawn { to_square }) {
+        if let Some(to_square) = pawn.left() {
+            let wall_over = to_square.try_into().map_or(false, |pawn| {
+                self.vertical_walls.contains_square(pawn)
+            });
+            let wall_below = to_square.below().map_or(false, |below| {
+                below.try_into().map_or(false, |pawn| {
+                    self.vertical_walls.contains_square(pawn)
+                })
+            });
+            // if there isn't a wall blocking us, we pass the move to the callback
+            if !wall_over && !wall_below && callback(Move::Pawn { to_square }) {
                 return;
             }
         }
@@ -115,32 +139,42 @@ impl Board {
 
         // generate horizontal wall moves
         // these moves are blocked by
-        // 1. the left-hand sides of existing horizontal walls
+        // 1. the existing horizontal walls
         let mut blockers = self.horizontal_walls;
         // 2. the right-hand sides of existing horizontal walls
         blockers |= blockers.east_one();
-        // 3. the middles of existing vertical walls
-        blockers |= self.vertical_walls.east_one().south_one();
+        // 3. the left-hand sides of existing horizontal walls
+        blockers |= blockers.west_one();
+        // 4. the middles of existing vertical walls
+        blockers |= self.vertical_walls;
 
         let moves = !blockers;
         for to_square in moves {
-            if callback(Move::Wall { to_square, orientation: WallOrientation::Horizontal }) {
+            if callback(Move::Wall {
+                to_square,
+                orientation: WallOrientation::Horizontal,
+            }) {
                 return;
             }
         }
 
         // generate vertical wall moves
         // these moves are blocked by
-        // 1. the top sides of existing vertical walls
+        // 1. the existing vertical walls
         let mut blockers = self.vertical_walls;
-        // 2. the bottom sides of existing vertical walls
+        // 2. the top sides of existing vertical walls
+        blockers |= blockers.north_one();
+        // 3. the bottom sides of existing vertical walls
         blockers |= blockers.south_one();
-        // 3. the middles of existing horizontal walls
-        blockers |= self.horizontal_walls.east_one().south_one();
+        // 4. the middles of existing horizontal walls
+        blockers |= self.horizontal_walls;
 
         let moves = !blockers;
         for to_square in moves {
-            if callback(Move::Wall { to_square, orientation: WallOrientation::Vertical }) {
+            if callback(Move::Wall {
+                to_square,
+                orientation: WallOrientation::Vertical,
+            }) {
                 return;
             }
         }
@@ -156,7 +190,10 @@ impl Board {
                 let turn_index = usize::from(self.ply % 2);
                 self.pawns[turn_index] = to_square;
             }
-            Move::Wall { to_square, orientation } => {
+            Move::Wall {
+                to_square,
+                orientation,
+            } => {
                 let turn_index = usize::from(self.ply % 2);
                 self.walls_in_pocket[turn_index] -= 1;
                 match orientation {
@@ -169,6 +206,10 @@ impl Board {
                 }
             }
         }
+        self.ply += 1;
+    }
+
+    pub fn pass_turn(&mut self) {
         self.ply += 1;
     }
 }
